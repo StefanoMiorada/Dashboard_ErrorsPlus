@@ -148,6 +148,15 @@ def get_top_10_family_code(df_errors_plus):
     return lista_top_10_family_code
 
 
+def get_top_10_family_code_and_count(df_errors_plus):
+    df = (df_errors_plus.groupby("family_code")["family_code"].count()
+          .reset_index(name='count')
+          .sort_values(("count"), ascending=False)
+          .head(10)
+          )
+    top_10_family_code_and_count = df[["family_code","count"]]
+    return top_10_family_code_and_count
+
 def get_errors_per_rango_e_family_code(df_errors_plus):
     lista_top_10_family_code = get_top_10_family_code(df_errors_plus)
     df_errors = df_errors_plus[df_errors_plus["family_code"].isin(lista_top_10_family_code)]

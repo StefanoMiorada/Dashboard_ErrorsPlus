@@ -29,7 +29,7 @@ grafico2 = dcc.Graph(figure={}, style={"display": "none"})
 discard = dbc.RadioItems(options=[{"label": "True", "value": "True"},
                                   {"label": "False", "value": "False"},
                                   {"label": "Entrambi", "value": "Entrambi"},],
-            value="Entrambi",
+            value="True",
             id="discard",
             inline=True,
         )
@@ -184,7 +184,7 @@ def update_graph(discard, program, family, macchina, lines, layer, n_clicks):
     if program is not None:
         #filter errors_plus based on parameters
         df_errors_plus = get_df_errors_plus(df_errors_plus_running_true,discard,program,family,macchina)
-        # add rango to errors_plus e filtra df_artcode in base all'hash più comune del programma
+        # aggiungi rango a errors_plus e filtra df_artcode in base all'hash più comune del programma
         df_errors_plus, df_errors_plus_rango_zero,df_artcode_specific_hash = add_rango_to_errors_plus(df_errors_plus, df_artcode, df_artcode_references, program)
         #creo un dataset che per ogni rango conta il numero di errori in base a family code
         errors_per_rango = get_errors_per_rango_e_family_code(df_errors_plus)
@@ -195,6 +195,33 @@ def update_graph(discard, program, family, macchina, lines, layer, n_clicks):
         fig_errors = px.bar(errors_per_rango, x="rango", y="count", color="family_code",opacity=1)
         fig.add_traces(fig_errors['data'][:])
         fig.update_layout(barmode='stack')
+        # titoli degli assi
+        fig.update_yaxes(title_text="Errori per rango", secondary_y=False, showgrid=False)
+        fig.update_xaxes(title_text="Rango", showgrid=False)
+        # imposta la mdalità "comapre data on hover" di default
+        fig.update_layout(hovermode='x')
+        # aggiunta del titolo al grafico
+        fig.update_layout(
+            title_text=titolo,
+            title_x=0.5
+        )
+        # seconda figure: subplot di istogramma top10 errori e pie chart di errori al rango zero
+        top_10 = get_top_10_family_code_and_count(df_errors_plus)
+        fig2 = make_subplots(rows=1, cols=2,specs=[[{"type": "xy"}, {"type": "pie"}]],
+                             subplot_titles=(f"TOP 10 ERRORI<br><sup>{titolo}</sup>",
+                                             f"ERRORI AL RANGO ZERO<br><sup>{titolo}</sup>")
+        )
+        fig2.add_trace(
+            go.Bar(x=top_10["family_code"],y=top_10["count"],showlegend=False),
+            row=1,col=1
+        )
+        fig2.add_trace(
+            go.Pie(labels=errors_rango_zero["family_code"],values=errors_rango_zero["count"]),
+            row=1,col=2
+        )
+        # faccio in modo che le label siano all'interno del pie chart, se non ci stanno allora non le metto
+        fig2.update_traces(textposition='inside')
+        fig2.update_layout(uniformtext_minsize=12, uniformtext_mode='hide')
         # gestione delle linee RPM/step in base alla selezione
         if lines == "RPM" or lines == "Entrambi":
             fig.add_trace(
@@ -216,37 +243,23 @@ def update_graph(discard, program, family, macchina, lines, layer, n_clicks):
                 fig.update_yaxes(title_text="step", secondary_y=True, showgrid=False)
             else:
                 fig.update_yaxes(title_text="RPM e step", secondary_y=True, showgrid=False)
-
-        # titoli degli assi
-        fig.update_yaxes(title_text="Errori per rango", secondary_y=False, showgrid=False)
-        fig.update_xaxes(title_text="Rango", showgrid=False)
-        #imposta la mdalità "comapre data on hover" di default
-        fig.update_layout(hovermode='x')
-        #aggiunta del titolo al grafico
-        fig.update_layout(
-            title_text=titolo,
-            title_x=0.5
-        )
-        #pie chart errori al rango zero
-        fig2 = px.pie(errors_rango_zero, values='count', names='family_code')
-        fig2.update_layout(
-            title_text=f'Errori al rango zero ({errors_rango_zero["count"].sum()} errori)',
-            title_x=0.5
-        )
-        #aggiunta delle tracce di zona/economia
+        # aggiunta delle tracce di zona/economia
         if layer == "economie":
             lista_economie = get_lista_economie(df_artcode_specific_hash)
             for e in lista_economie:
                 fig.add_vrect(x0=e["min"], x1=e["max"], line_width=0, fillcolor="red", opacity=0.2,
-                              annotation_text="economia", annotation_position="top left", annotation_textangle=90,
+                              annotation_text="economia", annotation_position="top left",
+                              annotation_textangle=90,
                               layer="below")
         if layer == "zone":
             lista_zone = get_lista_zone(df_artcode_specific_hash)
             for e in lista_zone:
                 fig.add_vrect(x0=e["min"], x1=e["max"], line_width=0, fillcolor=e["color"], opacity=0.2,
-                              annotation_text="",annotation_position="top left", annotation_textangle = 90,layer="below")
-    # per fare apparire i grafici solo dopo averli creati la prima volta, prima ritorno la figure e poi gli modifico lo style display
-    return fig,{"display": "block"},fig2,{"display": "block"}, messaggio_errore
+                              annotation_text="", annotation_position="top left", annotation_textangle=90,
+                              layer="below")
+    # per fare apparire i grafici solo dopo averli creati la prima volta,
+    # prima ritorno la figure e poi gli modifico lo style display
+    return fig, {"display": "block"}, fig2, {"display": "block"}, messaggio_errore
 
 
 if __name__ == '__main__':
